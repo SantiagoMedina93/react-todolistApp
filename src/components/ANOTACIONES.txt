@@ -1,0 +1,250 @@
+
+*** HOOKS ***
+* NO SE PUEDE USAR UN HOOK DENTRO DE UN CONDICIONAL
+* LOS HOOKS SE ORDENAN EN FUNCION DE SU POSICIÓN EN EL CODIGO
+* RENDERIZAR: DESMONTAR EL COMPONENTE Y VOLVER A MONTARLO (1° VEZ SOLO SE MONTA)
+
+
+1- useState: Se plantea un valor(state), una fn para cambiar(setState) el valor y un valor inicial(initialState),
+   cada vez que se cambia el valor(state) se vuelve a renderizar el componente ( cambia el DOM ).
+ 
+        const [state,setState] = useState(initialState);
+
+2- useEffect: Se plantea un efecto secundario, el componente solo se renderizara si la dependencia( [] ). En cuanto 
+   al return, se utiliza para limpiar el evento/acción que realice el hook. Este hook SOLO retornara la fn cuando el 
+   componente asociado se desmonte del DOM El orden de ejecución de la renderización es: Cambio en el DOM => Pantalla 
+   se actualiza visualmente => useEffect() { asincrona }.
+
+        useEffect(() => {
+                
+            return () =>{}
+        }, []);
+
+3- useLayoutEffect: IDEM useEffect. Podría usarse cuando notas que la actualización parpadea visualmente, o cuando 
+   quieres agrupar varias actualizaciones en una, puedes probar con esto cambiando el useLayoutEffect por el useEffect 
+   y notarás ese ligero parpadeo con useEffect pero no con useLayoutEffect. El orden de ejecución de la renderización 
+   es: Cambio en DOM => => useEffectLayout () { sincrona } => Pantalla se actualiza visualmente. 
+
+        useLayoutEffect(() => {
+                
+            return () =>{}
+        }, []);
+
+4- useRef: Se plante un estado que sirve como referencia para otros componentes. La const ref es un objeto, por lo que 
+   para determinar su valor es necesario la propiedad .current Su principal funcón es la de servir como condicional para 
+   cuando se desmonta un componente y esté intenta renderizarce 
+
+        const ref = useRef(initialState);
+
+   Se utiliza principalmente con el useEffect ya que la fn del return solo se ejecutara cuando el componente al cual hace 
+   referencia se desmonte, y al tener las despendencias( [] ) vacias, solo se ejecutara 1 vez cuando el componente se monte
+   (!PERO NO DISPARARA LA FN DEL RETURN!)
+
+        const isMounted = useRef(true);
+        useEffect(() => {
+
+            return () =>{
+                isMounted.current = false;  
+            }
+        }, []);
+
+5- useMemo: Utilzado principalmente en los componentes hijos. Se planteo un estado(state) el cual contiene un callback(() => function). 
+   El estado SOLO cambiara si cambian las dependencias( [] ), caso contrario la fn no se ejecuta y retornara el valor memorizado.
+
+        const state = useMemo( () => function, [] );
+
+
+6- useCallback: Cada vez que se renderizar el componente se le asigna un nuevo espacio en memoria a las fn. Por esta razón, Reac.momo() no 
+   funciona si sus property son fn. EL hook plantea una funcion que sera actualizada si la dependencia ( [] ) cambia, de caso contrario se 
+   utilizara el valor memorizado ( a donde apunte en memoria ). Es necesaria la dependencia del state para que el hook funcion pero NO SE 
+   DEBE colocarla en el apartado de dependencias ya que el hook no tendria efecto. Esta dependencia se coloca como argumento del callback de 
+   la fn que modifique el state, de esta forma se tiene el valor anterior del mismo y el hook funciona. Se puede usar complementandolo con 
+   la fn React.memo() para enviar fn como property de un componente padre a un componente hijo.  
+
+        const function = useCallback( ( arg ) => {
+
+            setState( (state) => state )
+
+        }, [ setState ]);
+
+7- useReducer: Tener controlado en un solo lugar todas las acciones que modifican mi state
+    1. No debe tener efectos secundarios => NO PUEDE LLAMARA OTRAS FUNCIONES
+    2. No debe realizar tareas asincronas   
+    3. Debe retornar siempre un nuevo estado
+    4. No debe llamar localStorage o sessionStorage
+    5. Para modificar el state no debe de requerir más que una accion que puede tener un argumento
+
+
+        const [state, dispatch] = useReducer(reducer, initialState, init);
+
+   useReducer: Similar a useState, pero se utiliza cuando se deben hacer un numero incierto (muchas) modificaciones al state. De igual manera se 
+   plantea un un estado(state) y un valor inicial(initialState), con la salvedad de que se tiene una fn para inicializar (init) el componente. 
+   Está retorna el valor inicial(initialState) y tiene una mayor prioridad que el argumento initialState. 
+   
+   La diferencia radica en que para modificar el state se utiliza una fn secundaria
+   centralizada(reducer), la cual recibe como argumento el estado(state) del hook y una action/objeto. Dependiendo del valor del action/objeto se 
+   modificara el estado(state) con una función SWITCH(). Para enviar el action/objeto como argumento de la fn secundaria centralizada(reducer) se 
+   la debe mandar como argumento a la fn asociada(dispatch) al hook. 
+
+            setState( fn ) === reducer( state, action ) => dispatch(action/objeto) //El state no se envia como arg, lo hace internamente le hook
+
+    Secuencia del Hook: 
+        1. Se monta el componente por primera vez => state = initialState
+        2. Se declara el objeto con la accion a realizar => const action/objeto = {}
+        3!. Sucede el evento relacionado y se llama la fn asociada => dispatch(action/objeto) 
+        4. El hook llama a la fn secundaria centralizada. Modifica y retorna el estado => reducer( state, action ) => return newState 
+        5. Se renderiza el componente con el nuevo valor del state 
+
+8- useContext: "Encapsula" la aplicación (index => MainApp) en un componente padre para compartir información con todos los componentes hijos. Si 
+   esta información se modifica ya sea en el padre o en los hijos, todos los componentes hijos actualizaran su información. Para usar este hook 
+   primero hay que crear el Context mediante un componente: 
+
+        // https://v5.reactrouter.com/web/guides/quick-start
+        import {createContext} from 'react';
+
+            export const UserContext = createContext(null);         // UserContext puede ser cualquier nombre, es solo un EJEMPLO
+
+   Una vez creado se debe encapsular la aplicación el Context. Para enviar la información solo es necesario ejecutar .Provider y mandarla medinate 
+   value={}. Si son varios tipos (estados y fn) enviarla con un objeto: value={{state,setState}}  
+
+        export const MainApp = () => {
+            
+                return (
+                    <UserContext.Provider value={}>
+                        <AppRouter /> 
+                    </UserContext.Provider>
+                )
+        };
+
+    Para usar la informacion en los componentes hijos se debe ejecutar el HOOK, y mandarle como argumento el contexto que querramos utilizar. Si la 
+    información son varios elementos conviene desestructurarlo:  
+
+        const {informacion}  = useContext(UserContext);
+
+
+*** TEST ***
+
+COMO CONFIGURAR LOS HOOKS DE REACT (useState) DENTRO DE UN COMPONENTE
+
+
+
+
+
+*** REACT ROUTER *** 
+
+Manera tradicional de redireccionar => <a href="./"> => Refresca la pagina => Pide la información al servidor 
+react-router-dom =>  <Link to="/"> => No refresca la pagina => No hace la petición al servidor para traer toda la pagina
+
+1- Configuración del Router: index => MainApp => App
+
+        import {BrowserRouter as Router,Routes, Route, Navigate} from "react-router-dom";
+
+        <Router>
+            <div>
+                <NavBar /> 
+
+                <Routes>
+                    <Route path="/" element={ <AppComponent /> } />                 //Cuando este este panth, ejecuta el componente asociado
+                    <Route  path="*" element={<Navigate replace to="/" />} />  
+                </Routes>
+                
+            </div>
+        </Router>
+
+2- Configuración de los NavBar: index => MainApp => App => NavBar
+   DIFERENCIA ENTRE Link y NavLink: ESTILO => FOCALIZAR LA PAGINA EN LA QUE ESTA EL USUARIO
+
+        import { Link, NavLink } from "react-router-dom";
+        
+         <nav>
+            <ul>
+                <li>
+                    <Link to="/"> HOME </Link>          //Al tocar en "HOME" redirecciona al path asociado => ( +react-router-dom ) => ejecuta el componente asociado                                       
+                </li>
+            </ul>
+        </nav>
+
+
+*** Funciónes ***
+1- .map() = Devuelve el mismo array modificado con la fn callback
+    
+        array.map( (array) => { fn } )
+
+2- React.memo() = Utilzado principalmente en los componentes hijos. El componente solo se renderiza si sus property cambian, }
+   caso contrario solo devuelve el valor memorizado del componente. Por si sola solo funciona con property del tipo valor, es 
+   decir, no funciona con property tipo funcion ( Solución = agregar useCallback )
+
+        export const MemoHook = React.memo(( property ) => {
+
+            return (
+            <> 
+            
+            </>
+            )
+        };)
+
+3- .trim() = Quita los espacios en las variables. Necesario para validaciones
+
+4- localStorage.setItem( key , string ) = Almacen/Ecribe información tipo String en el local Storage del navegador. Para convertir 
+   objetos en string usar JSON.stringify(objeto).
+
+5- localStorage.getItem(key) = Lee/Almacena el string asociado a la key y devuelve ese string. Para convertirlo en un objeto usar 
+   la funcion JSON.parse(localStorage.getItem(key))
+
+        // localStorage.getItem(key) = null <==> key no existe
+        // JSON.parse(null) = null ==> Usar en validaciones
+
+6- array.filter( callback ) Crea un nuevo array con todos los elementos que cumplan la condición implementada por el callback.
+
+*** FORMULARIOS *** 
+
+1. Cajas de texto 
+
+    <input
+        type='text'            // 1.'text': Campo de entrada de texto, 2.'password': Campo de entrada de password
+        name=''                // Atributo para hacer referencia a este <input/> en el evento: event.target.name = <input/>
+        className=''           // Clases de estilos 
+        placeholder=''         // Texto de referencia para el usuario ( estetico )
+        autoComplete='off'     // Autocompletar desactivado ( off )
+        value={}               // Valor del input al renderizar el componente: event.target.value
+        onChange={ fn }        // Cuando se detecta un cambio en el value se dispara la fn
+    />
+
+2. Formularios
+
+    <form onSubmit={ fn-1 }>          // Cuando se envia la información se dispara la fn-1
+        <div className='form-group'>  // Clase de formulario para dar estructura
+        <input
+            type='text'               // 1.'text': Campo de entrada de texto, 2.'password': Campo de entrada de password
+            name=''                   // Atributo para hacer referencia a este <input/> en el evento: event.target.name = <input/>
+            className='form-control'  // Altura de la caja de texto  form-control-sm / form-control / form-control-lg
+            placeholder=''            // Texto de referencia para el usuario ( estetico )
+            autoComplete='off'        // Autocompletar desactivado ( off )
+            value={}                  // Valor del input al renderizar el componente: event.target.value
+            onChange={ fn-2 }         // Cuando se detecta un cambio en el value se dispara la fn-2
+        />
+        </div>
+
+        <button 
+            type='sumbit'             // 3.'sumbit': Campo de envio de información al evento onSubmit                             
+            className=''
+            *onClick={ fn-3 }         // Cuando se detecta el evento se dispara la fn-3. 
+                                      // SOLO SE PUEDE SELECCIONAR UNO: type='sumbit' O onClick={ fn-3 }
+        >
+            nombreBotón
+        </button>
+    </form>
+
+*** EJEMPLO *** 
+
+    const handelInputChance = ({ target }) => {
+        // event.target.name: Referencia al <input/>
+        // event.target.value: Valor del <input/> referenciado 
+        setFormState({ ...state, [ target.name ]: target.value})
+    }
+
+    const handleSubmit = (e) => {
+        // Evita que el navegador se refresque
+        e.preventDefault();
+    }
+    
